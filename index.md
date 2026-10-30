@@ -1,8 +1,8 @@
 # Arch Linux ARM Installation Documentation
 
-**Date:** October 30, 2026\
-**Computer:** M2 MacBook Air\
-**Virtual Machine:** VMware Fusion\
+**Date:** October 30, 2026  
+**Computer:** M2 MacBook Air  
+**Virtual Machine:** VMware Fusion  
 **Operating System:** Arch Linux ARM
 
 ## 1. Setting Up the Virtual Machine
@@ -29,7 +29,7 @@ lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS — Found my 40 GB virtual hard drive
 
 The drive was listed as /dev/nvme0n1.
 
-
+![Archboot installation environment](images/01-installer-checks.jpg)
 
 ## 2. Partitioning the Hard Drive
 
@@ -41,7 +41,7 @@ command -v sgdisk — Checked that the partitioning tool was installed.
 
 sgdisk --zap-all /dev/nvme0n1 — Cleared the existing partition information.
 
-sgdisk -n 1:0:+1G -t 1 /dev/nvme0n1 — Created the EFI partition.
+sgdisk -n 1:0:+1G -t 1:ef00 /dev/nvme0n1 — Created the EFI partition.
 
 sgdisk -n 2:0:0 -t 2:8300 /dev/nvme0n1 — Created the Linux partition.
 
@@ -67,7 +67,7 @@ mount /dev/nvme0n1p1 /mnt/boot — Mounted the EFI partition.
 
 lsblk -f — Verified that everything was mounted correctly.
 
-
+![Partitions](images/02-partitions.jpg)
 
 ## 3. Installing Arch Linux
 
@@ -93,7 +93,7 @@ ls -lh /boot — Checked that the kernel and initramfs files were created.
 
 The installation completed successfully. There were a few warnings while generating the initramfs, but it finished successfully.
 
-
+![Base installation](images/03-base-install.jpg)
 
 ## 4. Configuring the System and Users
 
@@ -157,7 +157,7 @@ EDITOR=nano visudo — Opened the sudoers file.
 
 In the sudoers file, I uncommented this line to allow wheel group members to use sudo:
 
-%wheel ALL=(ALL) ALL
+%wheel ALL=(ALL:ALL) ALL
 
 I also enabled networking and SSH.
 
@@ -179,7 +179,7 @@ systemctl is-enabled sshd — Verified SSH was enabled.
 
 Both users were members of the wheel group, and both services were enabled.
 
-
+![User accounts and services](images/04-users-services.jpg)
 
 ## 5. Installing the Desktop Environment
 
@@ -237,7 +237,7 @@ pacman -Q lxqt-session sddm xorg-server openbox firefox — Verified that the pa
 
 Everything checked out.
 
-
+![Desktop packages installed](images/05-desktop-packages.jpg)
 
 ## 6. Configuring the Bootloader
 
@@ -273,7 +273,7 @@ ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2) — Saved the UUID to a varia
 
 I then created the Arch Linux boot entry by entering these lines:
 
-cat > /boot/loader/entries/arch.conf <\<EOF
+cat > /boot/loader/entries/arch.conf <<EOF
 
 title Arch Linux ARM
 
@@ -311,9 +311,9 @@ This time, Arch Linux successfully booted from the virtual hard drive and brough
 
 Both user accounts appeared, and I was able to log into LXQt using my own account.
 
+![Login screen](images/06-login.jpg)
 
-
-
+![LXQt desktop](images/07-desktop.jpg)
 
 ## 7. Configuring Zsh, Colors, and Aliases
 
@@ -323,13 +323,13 @@ Both user accounts already had Zsh configured as their default shell.
 
 I edited my Zsh configuration file:
 
-nano \~/.zshrc — Opened the Zsh configuration.
+nano ~/.zshrc — Opened the Zsh configuration.
 
 I added these settings for terminal colors:
 
 autoload -U colors && colors
 
-PROMPT='%F{green}%n@%m%f:%F{blue}%\~%f$ '
+PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '
 
 I also added aliases to make common Linux commands easier to use.
 
@@ -355,11 +355,11 @@ alias ...='cd ../..' — Goes back two directories.
 
 After saving the file, I ran:
 
-source \~/.zshrc — Reloaded the configuration.
+source ~/.zshrc — Reloaded the configuration.
 
 I tested several aliases, including ll, myip, and ports. They all worked, and the terminal displayed different colors.
 
-
+![Colored terminal and aliases](images/08-terminal-aliases.jpg)
 
 ## 8. Testing the Installation
 
@@ -393,7 +393,7 @@ The VM's IP address was 192.168.116.143 during testing.
 
 I also opened Firefox to verify that the graphical browser worked and that I could access the internet.
 
-
+![SSH and system verification](images/09-service-verification.jpg)
 
 ## 9. AUR Package
 
@@ -407,7 +407,7 @@ For the video, I will choose an AUR package that supports ARM64, check its PKGBU
 
 The general commands are:
 
-git clone [https://aur.archlinux.org/PACKAGE.git](https://aur.archlinux.org/PACKAGE.git) — Downloads the selected package's build files.
+git clone https://aur.archlinux.org/PACKAGE.git — Downloads the selected package's build files.
 
 cd PACKAGE — Enters the package directory.
 
