@@ -21,15 +21,14 @@ I initially had trouble getting Archboot to start. The regular boot option kept 
 
 Once I was in the terminal, I ran these commands:
 
-uname -m — Checked that the architecture was aarch64.
+`uname -m` — Checked that the architecture was aarch64.
 
-ping -c 3 archlinux.org — Made sure the VM had internet access.
+`ping -c 3 archlinux.org` — Made sure the VM had internet access.
 
-lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS — Found my 40 GB virtual hard drive.
+`lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS` — Found my 40 GB virtual hard drive.
 
 The drive was listed as /dev/nvme0n1.
 
-![Archboot installation environment](images/01-installer-checks.jpg)
 
 ## 2. Partitioning the Hard Drive
 
@@ -37,37 +36,36 @@ Next, I partitioned the virtual hard drive. I decided to use two partitions. The
 
 Commands used:
 
-command -v sgdisk — Checked that the partitioning tool was installed.
+`command -v sgdisk` — Checked that the partitioning tool was installed.
 
-sgdisk --zap-all /dev/nvme0n1 — Cleared the existing partition information.
+`sgdisk --zap-all /dev/nvme0n1` — Cleared the existing partition information.
 
-sgdisk -n 1:0:+1G -t 1:ef00 /dev/nvme0n1 — Created the EFI partition.
+`sgdisk -n 1:0:+1G -t 1:ef00 /dev/nvme0n1` — Created the EFI partition.
 
-sgdisk -n 2:0:0 -t 2:8300 /dev/nvme0n1 — Created the Linux partition.
+`sgdisk -n 2:0:0 -t 2:8300 /dev/nvme0n1` — Created the Linux partition.
 
-partx -u /dev/nvme0n1 — Updated the partition information.
+`partx -u /dev/nvme0n1` — Updated the partition information.
 
-lsblk — Checked that both partitions were created.
+`lsblk` — Checked that both partitions were created.
 
 I originally tried using partprobe, but it wasn't installed. I used partx instead, which worked.
 
 After creating the partitions, I formatted them.
 
-mkfs.fat -F 32 /dev/nvme0n1p1 — Formatted the EFI partition as FAT32.
+`mkfs.fat -F 32 /dev/nvme0n1p1` — Formatted the EFI partition as FAT32.
 
-mkfs.ext4 /dev/nvme0n1p2 — Formatted the Linux partition as EXT4.
+`mkfs.ext4 /dev/nvme0n1p2` — Formatted the Linux partition as EXT4.
 
 Then I mounted them:
 
-mount /dev/nvme0n1p2 /mnt — Mounted the main Linux partition.
+`mount /dev/nvme0n1p2 /mnt` — Mounted the main Linux partition.
 
-mkdir -p /mnt/boot — Created the boot directory.
+`mkdir -p /mnt/boot` — Created the boot directory.
 
-mount /dev/nvme0n1p1 /mnt/boot — Mounted the EFI partition.
+`mount /dev/nvme0n1p1 /mnt/boot` — Mounted the EFI partition.
 
-lsblk -f — Verified that everything was mounted correctly.
+`lsblk -f` — Verified that everything was mounted correctly.
 
-![Partitions](images/02-partitions.jpg)
 
 ## 3. Installing Arch Linux
 
@@ -75,25 +73,24 @@ After partitioning the drive, I installed the base Arch Linux ARM system manuall
 
 Commands used:
 
-command -v pacstrap — Checked that pacstrap was available.
+`command -v pacstrap` — Checked that pacstrap was available.
 
-pacman -Sy — Updated the package databases.
+`pacman -Sy` — Updated the package databases.
 
-pacstrap -K /mnt base linux-aarch64 sudo nano networkmanager openssh zsh git base-devel — Installed the base operating system, ARM kernel, and programs I needed.
+`pacstrap -K /mnt base linux-aarch64 sudo nano networkmanager openssh zsh git base-devel` — Installed the base operating system, ARM kernel, and programs I needed.
 
-genfstab -U /mnt >> /mnt/etc/fstab — Created the filesystem configuration.
+`genfstab -U /mnt >> /mnt/etc/fstab` — Created the filesystem configuration.
 
-cat /mnt/etc/fstab — Checked the filesystem entries.
+`cat /mnt/etc/fstab` — Checked the filesystem entries.
 
-arch-chroot /mnt — Entered the installed Arch Linux system.
+`arch-chroot /mnt` — Entered the installed Arch Linux system.
 
-cat /etc/os-release — Verified that Arch Linux ARM was installed.
+`cat /etc/os-release` — Verified that Arch Linux ARM was installed.
 
 ls -lh /boot — Checked that the kernel and initramfs files were created.
 
 The installation completed successfully. There were a few warnings while generating the initramfs, but it finished successfully.
 
-![Base installation](images/03-base-install.jpg)
 
 ## 4. Configuring the System and Users
 
@@ -101,29 +98,29 @@ Once Arch was installed, I configured the timezone, language, hostname, and user
 
 Commands used:
 
-ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime — Set the timezone to Central Time.
+`ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime` — Set the timezone to Central Time.
 
-hwclock --systohc — Updated the hardware clock.
+`hwclock --systohc` — Updated the hardware clock.
 
-nano /etc/locale.gen — Opened the language configuration file.
+`nano /etc/locale.gen` — Opened the language configuration file.
 
 I uncommented en_US.UTF-8 UTF-8.
 
-locale-gen — Generated the language settings.
+`locale-gen` — Generated the language settings.
 
-echo "LANG=en_US.UTF-8" > /etc/locale.conf — Set the default language.
+`echo "LANG=en_US.UTF-8" > /etc/locale.conf` — Set the default language.
 
-echo "arch-cooper" > /etc/hostname — Set the computer's hostname.
+`echo "arch-cooper" > /etc/hostname` — Set the computer's hostname.
 
-nano /etc/hosts — Edited the hosts file.
+`nano /etc/hosts` — Edited the hosts file.
 
 I added the following entries to the hosts file:
 
-127.0.0.1 localhost
+`127.0.0.1 localhost`
 
-::1 localhost
+`::1 localhost`
 
-127.0.1.1 arch-cooper.localdomain arch-cooper
+`127.0.1.1 arch-cooper.localdomain arch-cooper`
 
 ### Problem with Nano
 
@@ -133,7 +130,7 @@ Error opening terminal: xterm-kmscon
 
 I figured out that the terminal type wasn't supported inside the chroot environment. I fixed it by running:
 
-export TERM=xterm
+`export TERM=xterm`
 
 After that, Nano worked normally.
 
@@ -143,43 +140,42 @@ The assignment required creating accounts for myself and Codi, both with sudo pe
 
 Commands used:
 
-passwd — Set the root password.
+`passwd` — Set the root password.
 
-useradd -m -G wheel -s /bin/zsh cooper — Created my account with Zsh and added it to the wheel group.
+`useradd -m -G wheel -s /bin/zsh cooper` — Created my account with Zsh and added it to the wheel group.
 
-passwd cooper — Set my account password.
+`passwd cooper` — Set my account password.
 
-useradd -m -G wheel -s /bin/zsh codi — Created Codi's account with the same permissions.
+`useradd -m -G wheel -s /bin/zsh codi` — Created Codi's account with the same permissions.
 
-passwd codi — Set Codi's password.
+`passwd codi` — Set Codi's password.
 
-EDITOR=nano visudo — Opened the sudoers file.
+`EDITOR=nano visudo` — Opened the sudoers file.
 
 In the sudoers file, I uncommented this line to allow wheel group members to use sudo:
 
-%wheel ALL=(ALL:ALL) ALL
+`%wheel ALL=(ALL:ALL) ALL`
 
 I also enabled networking and SSH.
 
-systemctl enable NetworkManager — Enabled networking at startup.
+`systemctl enable NetworkManager` — Enabled networking at startup.
 
-systemctl enable sshd — Enabled the SSH server at startup.
+`systemctl enable sshd` — Enabled the SSH server at startup.
 
 To verify everything, I ran:
 
-id cooper — Checked my groups.
+`id cooper` — Checked my groups.
 
-id codi — Checked Codi's groups.
+`id codi` — Checked Codi's groups.
 
-getent passwd cooper codi — Displayed both accounts and their default shells.
+`getent passwd cooper codi` — Displayed both accounts and their default shells.
 
-systemctl is-enabled NetworkManager — Verified networking was enabled.
+`systemctl is-enabled NetworkManager` — Verified networking was enabled.
 
-systemctl is-enabled sshd — Verified SSH was enabled.
+`systemctl is-enabled sshd` — Verified SSH was enabled.
 
 Both users were members of the wheel group, and both services were enabled.
 
-![User accounts and services](images/04-users-services.jpg)
 
 ## 5. Installing the Desktop Environment
 
@@ -189,9 +185,9 @@ I decided to use LXQt because it is lightweight and doesn't require as many reso
 
 Commands used:
 
-pacman -Syu — Updated installed packages.
+`pacman -Syu` — Updated installed packages.
 
-pacman -S --needed lxqt sddm xorg-server mesa openbox breeze-icons qterminal firefox — Installed the desktop environment and other programs.
+`pacman -S --needed lxqt sddm xorg-server mesa openbox breeze-icons qterminal firefox` — Installed the desktop environment and other programs.
 
 ### Problem with Package Signatures
 
@@ -205,19 +201,19 @@ Some commands I used to investigate and fix this were:
 
 pacman-key --init — Initialized the Pacman keyring.
 
-pacman -Q archlinuxarm-keyring — Checked whether the ARM keyring package was installed.
+`pacman -Q archlinuxarm-keyring` — Checked whether the ARM keyring package was installed.
 
 ls -l /usr/share/pacman/keyrings/ — Checked which signing-key files were available.
 
-pacman -Si archlinuxarm-keyring — Checked the package information.
+`pacman -Si archlinuxarm-keyring` — Checked the package information.
 
 I then imported and verified the official Arch Linux ARM signing key, trusted it locally, and installed the missing keyring package.
 
-pacman -Sy archlinuxarm-keyring — Installed the ARM keyring package.
+`pacman -Sy archlinuxarm-keyring` — Installed the ARM keyring package.
 
 pacman-key --populate archlinuxarm — Loaded the trusted ARM signing keys.
 
-pacman -Syu — Updated the packages again.
+`pacman -Syu` — Updated the packages again.
 
 After fixing the signing keys, I retried installing LXQt, and it worked. I did not disable signature verification.
 
@@ -225,19 +221,18 @@ After fixing the signing keys, I retried installing LXQt, and it worked. I did n
 
 Once everything was installed, I ran:
 
-systemctl enable sddm — Enabled the graphical login screen.
+`systemctl enable sddm` — Enabled the graphical login screen.
 
-systemctl set-default graphical.target — Configured the system to boot into the GUI.
+`systemctl set-default graphical.target` — Configured the system to boot into the GUI.
 
-systemctl get-default — Verified the default boot target.
+`systemctl get-default` — Verified the default boot target.
 
-systemctl is-enabled sddm — Verified SDDM was enabled.
+`systemctl is-enabled sddm` — Verified SDDM was enabled.
 
-pacman -Q lxqt-session sddm xorg-server openbox firefox — Verified that the packages were installed.
+`pacman -Q lxqt-session sddm xorg-server openbox firefox` — Verified that the packages were installed.
 
 Everything checked out.
 
-![Desktop packages installed](images/05-desktop-packages.jpg)
 
 ## 6. Configuring the Bootloader
 
@@ -249,61 +244,61 @@ Commands used:
 
 ls /sys/firmware/efi/efivars — Checked the UEFI environment.
 
-bootctl install — Installed systemd-boot onto the EFI partition.
+`bootctl install` — Installed systemd-boot onto the EFI partition.
 
-mkdir -p /boot/loader/entries — Created the bootloader entries directory.
+`mkdir -p /boot/loader/entries` — Created the bootloader entries directory.
 
-nano /boot/loader/loader.conf — Edited the bootloader settings.
+`nano /boot/loader/loader.conf` — Edited the bootloader settings.
 
 I put these settings in loader.conf:
 
-default arch.conf
+`default arch.conf`
 
-timeout 5
+`timeout 5`
 
-console-mode auto
+`console-mode auto`
 
-editor no
+`editor no`
 
 Next, I got the UUID of my Linux partition.
 
-blkid /dev/nvme0n1p2 — Displayed the partition UUID.
+`blkid /dev/nvme0n1p2` — Displayed the partition UUID.
 
-ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2) — Saved the UUID to a variable.
+`ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2)` — Saved the UUID to a variable.
 
 I then created the Arch Linux boot entry by entering these lines:
 
-cat > /boot/loader/entries/arch.conf <<EOF
+`cat > /boot/loader/entries/arch.conf <<EOF`
 
-title Arch Linux ARM
+`title Arch Linux ARM`
 
-linux /Image
+`linux /Image`
 
-initrd /initramfs-linux.img
+`initrd /initramfs-linux.img`
 
-options root=UUID=$ROOT_UUID rw
+`options root=UUID=$ROOT_UUID rw`
 
-EOF
+`EOF`
 
 I pressed Enter after the final EOF to finish writing the file.
 
 Then I verified it:
 
-cat /boot/loader/entries/arch.conf — Checked the boot entry.
+`cat /boot/loader/entries/arch.conf` — Checked the boot entry.
 
-bootctl list — Displayed the available boot entries.
+`bootctl list` — Displayed the available boot entries.
 
-bootctl status — Checked the bootloader status.
+`bootctl status` — Checked the bootloader status.
 
 I did get a message saying the system was not booted with EFI or was running inside a container. This happened because I was still using chroot. The bootloader files were installed, and the boot entry appeared correctly.
 
 Finally, I ran:
 
-exit — Exited chroot.
+`exit` — Exited chroot.
 
-umount -R /mnt — Unmounted the installed system.
+`umount -R /mnt` — Unmounted the installed system.
 
-poweroff — Shut down the VM.
+`poweroff` — Shut down the VM.
 
 I disconnected the ISO in VMware Fusion and started the virtual machine again.
 
@@ -311,9 +306,7 @@ This time, Arch Linux successfully booted from the virtual hard drive and brough
 
 Both user accounts appeared, and I was able to log into LXQt using my own account.
 
-![Login screen](images/06-login.jpg)
 
-![LXQt desktop](images/07-desktop.jpg)
 
 ## 7. Configuring Zsh, Colors, and Aliases
 
@@ -323,43 +316,42 @@ Both user accounts already had Zsh configured as their default shell.
 
 I edited my Zsh configuration file:
 
-nano ~/.zshrc — Opened the Zsh configuration.
+`nano ~/.zshrc` — Opened the Zsh configuration.
 
 I added these settings for terminal colors:
 
-autoload -U colors && colors
+`autoload -U colors && colors`
 
-PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '
+`PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '`
 
 I also added aliases to make common Linux commands easier to use.
 
-alias ls='ls --color=auto' — Enables colored directory listings.
+`alias ls='ls --color=auto'` — Enables colored directory listings.
 
-alias grep='grep --color=auto' — Enables colored grep output.
+`alias grep='grep --color=auto'` — Enables colored grep output.
 
-alias ll='ls -lah' — Displays a detailed directory listing.
+`alias ll='ls -lah'` — Displays a detailed directory listing.
 
-alias la='ls -A' — Lists files including hidden files.
+`alias la='ls -A'` — Lists files including hidden files.
 
-alias cls='clear' — Clears the terminal.
+`alias cls='clear'` — Clears the terminal.
 
-alias update='sudo pacman -Syu' — Updates packages.
+`alias update='sudo pacman -Syu'` — Updates packages.
 
-alias myip='ip -br addr' — Displays network addresses.
+`alias myip='ip -br addr'` — Displays network addresses.
 
-alias ports='ss -tuln' — Shows listening ports.
+`alias ports='ss -tuln'` — Shows listening ports.
 
-alias ..='cd ..' — Goes back one directory.
+`alias ..='cd ..'` — Goes back one directory.
 
-alias ...='cd ../..' — Goes back two directories.
+`alias ...='cd ../..'` — Goes back two directories.
 
 After saving the file, I ran:
 
-source ~/.zshrc — Reloaded the configuration.
+`source ~/.zshrc` — Reloaded the configuration.
 
 I tested several aliases, including ll, myip, and ports. They all worked, and the terminal displayed different colors.
 
-![Colored terminal and aliases](images/08-terminal-aliases.jpg)
 
 ## 8. Testing the Installation
 
@@ -369,19 +361,19 @@ Commands used:
 
 whoami — Checked the current username.
 
-echo $SHELL — Verified that Zsh was the default shell.
+`echo $SHELL` — Verified that Zsh was the default shell.
 
-sudo whoami — Tested sudo permissions.
+`sudo whoami` — Tested sudo permissions.
 
-getent passwd cooper codi — Displayed both user accounts.
+`getent passwd cooper codi` — Displayed both user accounts.
 
-id cooper — Checked my group membership.
+`id cooper` — Checked my group membership.
 
-id codi — Checked Codi's group membership.
+`id codi` — Checked Codi's group membership.
 
-systemctl status sshd — Checked the SSH service.
+`systemctl status sshd` — Checked the SSH service.
 
-systemctl get-default — Checked the default boot mode.
+`systemctl get-default` — Checked the default boot mode.
 
 ip -br addr — Displayed the VM's IP address.
 
@@ -393,7 +385,6 @@ The VM's IP address was 192.168.116.143 during testing.
 
 I also opened Firefox to verify that the graphical browser worked and that I could access the internet.
 
-![SSH and system verification](images/09-service-verification.jpg)
 
 ## 9. AUR Package
 
@@ -401,19 +392,19 @@ The assignment also requires installing a package from the Arch User Repository 
 
 I already installed the development tools needed for this.
 
-sudo pacman -S --needed base-devel git — Installs the tools needed to build AUR packages.
+`sudo pacman -S --needed base-devel git` — Installs the tools needed to build AUR packages.
 
 For the video, I will choose an AUR package that supports ARM64, check its PKGBUILD file, and install it using makepkg.
 
 The general commands are:
 
-git clone https://aur.archlinux.org/PACKAGE.git — Downloads the selected package's build files.
+`git clone https://aur.archlinux.org/PACKAGE.git` — Downloads the selected package's build files.
 
-cd PACKAGE — Enters the package directory.
+`cd PACKAGE` — Enters the package directory.
 
-less PKGBUILD — Shows the build instructions so I can review them.
+`less PKGBUILD` — Shows the build instructions so I can review them.
 
-makepkg -si — Builds and installs the package.
+`makepkg -si` — Builds and installs the package.
 
 I will complete this part during the walkthrough video.
 
