@@ -4,7 +4,6 @@
 **Platform:** Apple M2 MacBook Air · VMware Fusion · Arch Linux ARM (aarch64)  
 **Purpose:** Install Arch Linux manually, configure a graphical desktop and administrative users, and document decisions and problems encountered.
 
-> **Important:** This describes my particular virtual machine and is intended to help me reproduce it. It is **not** a copy of the Arch Wiki. I did not use `archinstall`, Archboot `setup`, or `quickinst`. Partition commands erase the selected virtual disk. Check disk names before running them.
 
 ## 1. VM setup and booting the installer
 
