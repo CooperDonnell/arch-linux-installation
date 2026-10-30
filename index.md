@@ -1,273 +1,453 @@
-# Manual Arch Linux ARM Installation on VMware Fusion
+# Arch Linux ARM Installation Documentation
 
-**Installation date:** October 30, 2026  
-**Platform:** Apple M2 MacBook Air · VMware Fusion · Arch Linux ARM (aarch64)  
-**Purpose:** Install Arch Linux manually, configure a graphical desktop and administrative users, and document decisions and problems encountered.
+**Date:** October 30, 2026\
+**Computer:** M2 MacBook Air\
+**Virtual Machine:** VMware Fusion\
+**Operating System:** Arch Linux ARM
 
-> **Important:** This describes my particular virtual machine and is intended to help me reproduce it. It is **not** a copy of the Arch Wiki. I did not use `archinstall`, Archboot `setup`, or `quickinst`. Partition commands erase the selected virtual disk. Check disk names before running them.
+## 1. Setting Up the Virtual Machine
 
-## 1. VM setup and booting the installer
+For this assignment, I installed Arch Linux ARM on my M2 MacBook Air using VMware Fusion. Since my Mac uses an ARM processor, I couldn't use the regular Arch Linux ISO. Instead, I downloaded the ARM version of Archboot that was linked in the assignment.
 
-I created a **custom ARM64 Linux VM** in VMware Fusion with **4 CPU cores**, initially **4 GB RAM** (increased to **8 GB** while troubleshooting), **40 GB NVMe storage**, UEFI firmware, and **NAT networking**. I used the unofficial **Archboot aarch64** ISO linked by the instructor: <https://release.archboot.com/aarch64/latest/iso/>.
+I created a new Linux ARM virtual machine with these settings:
 
-The normal `Launch UEFI Archboot – Arch Linux aarch64` option did not complete startup: it stopped at a `pam_nologin` message saying the system was still booting. I restarted, chose **Launch UEFI IPXE Archboot – Arch Linux aarch64**, authorized network access in macOS, and selected the Arch Linux aarch64 netboot entry. This downloaded the installer environment and brought me to the root Bash prompt after pressing **Ctrl+C** at the Archboot welcome screen. The network boot method solved the initial problem.
+- 4 CPU cores
+- 8 GB RAM (originally 4 GB)
+- 40 GB virtual hard drive
+- NAT networking
+- UEFI boot
 
-```bash
-uname -m                  # Confirm aarch64 architecture
-ping -c 3 archlinux.org    # Confirm Internet access
-lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS  # Identify the blank 40 GB disk
-```
+I initially had trouble getting Archboot to start. The regular boot option kept getting stuck on a message saying the system was still booting. I tried restarting and increasing the RAM, but it didn't fix the issue. I eventually selected the iPXE network boot option, which downloaded the installation environment over the internet. This worked, and I was able to open the root terminal.
 
-My disk was **`/dev/nvme0n1`**; `zram0` and `sr0` belonged to the live installation environment and were not partitioned.
+Once I was in the terminal, I ran these commands:
 
-![Booted installer and checked disk](images/01-installer-checks.jpg)
+uname -m — Checked that the architecture was aarch64.
 
-## 2. Partition, format, and mount
+ping -c 3 archlinux.org — Made sure the VM had internet access.
 
-I chose a simple **GPT / UEFI** layout, **FAT32 for the 1 GB EFI System Partition**, and **ext4 for the remaining root filesystem**, without a separate swap partition.
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS — Found my 40 GB virtual hard drive.
 
-```bash
-command -v sgdisk         # Check partitioning tool availability
-# If missing: pacman -Sy --needed gptfdisk
-sgdisk --zap-all /dev/nvme0n1              # Clear old partition table on VM disk
-sgdisk -n 1:0:+1G -t 1:ef00 /dev/nvme0n1  # Create 1 GB EFI partition
-sgdisk -n 2:0:0 -t 2:8300 /dev/nvme0n1    # Create remaining Linux partition
-partx -u /dev/nvme0n1                     # Refresh partition table in kernel
-lsblk                                     # Confirm p1 and p2 exist
-mkfs.fat -F 32 /dev/nvme0n1p1             # Format EFI as FAT32
-mkfs.ext4 /dev/nvme0n1p2                 # Format root as ext4
-mount /dev/nvme0n1p2 /mnt                # Mount future root filesystem
-mkdir -p /mnt/boot                        # Create EFI mount directory
-mount /dev/nvme0n1p1 /mnt/boot           # Mount EFI System Partition
-lsblk -f                                  # Verify filesystem types and mounts
-```
+The drive was listed as /dev/nvme0n1.
 
-`partprobe` was unavailable in the live environment, so I used **`partx -u`** to refresh the partition information instead.
 
-![Formatted and mounted partitions](images/02-partitions.jpg)
 
-## 3. Install the base OS
+## 2. Partitioning the Hard Drive
 
-I used **`pacstrap` manually**, choosing the ARM-specific kernel and the packages needed for the assignment.
+Next, I partitioned the virtual hard drive. I decided to use two partitions. The first was a 1 GB EFI partition for booting, and the second used the remaining space for the operating system.
 
-```bash
-command -v pacstrap       # Verify pacstrap exists in live environment
-# If missing: pacman -Sy --needed arch-install-scripts
-pacman -Sy               # Refresh installer package databases
-pacstrap -K /mnt base linux-aarch64 sudo nano networkmanager openssh zsh git base-devel
-                           # Install core ARM OS, administration, SSH, Zsh, and build tools
-genfstab -U /mnt >> /mnt/etc/fstab         # Record root and EFI mounts using UUIDs
-cat /mnt/etc/fstab                        # Check both entries
-arch-chroot /mnt                          # Work inside installed system
-cat /etc/os-release                       # Confirm Arch Linux ARM
-ls -lh /boot                              # Check ARM kernel Image and initramfs
-```
+Commands used:
 
-The kernel/initramfs build printed nonfatal ARM-specific warnings, but ended with **`Initcpio image generation successful`**. Kernel files included `/boot/Image` and `/boot/initramfs-linux.img`.
+command -v sgdisk — Checked that the partitioning tool was installed.
 
-![Successful base installation](images/03-base-install.jpg)
+sgdisk --zap-all /dev/nvme0n1 — Cleared the existing partition information.
 
-## 4. Locale, hostname, and users
+sgdisk -n 1:0:+1G -t 1 /dev/nvme0n1 — Created the EFI partition.
 
-Inside `arch-chroot`, I set Central Time, enabled US English UTF-8, and named the VM `arch-cooper`.
+sgdisk -n 2:0:0 -t 2:8300 /dev/nvme0n1 — Created the Linux partition.
 
-```bash
-ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime  # Set timezone
-hwclock --systohc                                          # Save system clock to RTC
-export TERM=xterm                                          # Make Nano work in chroot
-nano /etc/locale.gen                                       # Uncomment en_US.UTF-8 UTF-8
-locale-gen                                                 # Generate selected locale
-echo 'LANG=en_US.UTF-8' > /etc/locale.conf                  # Set default locale
-echo 'arch-cooper' > /etc/hostname                          # Set hostname
-nano /etc/hosts                                            # Add loopback hostname entries
-passwd                                                     # Set root password (not documented)
-useradd -m -G wheel -s /bin/zsh cooper                     # Personal user, wheel group, Zsh
-passwd cooper                                              # Set password
-useradd -m -G wheel -s /bin/zsh codi                       # Second required user
-passwd codi                                                # Set password
-EDITOR=nano visudo                                         # Enable wheel group sudo rule
-```
+partx -u /dev/nvme0n1 — Updated the partition information.
 
-In `/etc/hosts`, I used:
+lsblk — Checked that both partitions were created.
 
-```text
+I originally tried using partprobe, but it wasn't installed. I used partx instead, which worked.
+
+After creating the partitions, I formatted them.
+
+mkfs.fat -F 32 /dev/nvme0n1p1 — Formatted the EFI partition as FAT32.
+
+mkfs.ext4 /dev/nvme0n1p2 — Formatted the Linux partition as EXT4.
+
+Then I mounted them:
+
+mount /dev/nvme0n1p2 /mnt — Mounted the main Linux partition.
+
+mkdir -p /mnt/boot — Created the boot directory.
+
+mount /dev/nvme0n1p1 /mnt/boot — Mounted the EFI partition.
+
+lsblk -f — Verified that everything was mounted correctly.
+
+
+
+## 3. Installing Arch Linux
+
+After partitioning the drive, I installed the base Arch Linux ARM system manually using pacstrap. I did not use archinstall or the automated Archboot installer.
+
+Commands used:
+
+command -v pacstrap — Checked that pacstrap was available.
+
+pacman -Sy — Updated the package databases.
+
+pacstrap -K /mnt base linux-aarch64 sudo nano networkmanager openssh zsh git base-devel — Installed the base operating system, ARM kernel, and programs I needed.
+
+genfstab -U /mnt >> /mnt/etc/fstab — Created the filesystem configuration.
+
+cat /mnt/etc/fstab — Checked the filesystem entries.
+
+arch-chroot /mnt — Entered the installed Arch Linux system.
+
+cat /etc/os-release — Verified that Arch Linux ARM was installed.
+
+ls -lh /boot — Checked that the kernel and initramfs files were created.
+
+The installation completed successfully. There were a few warnings while generating the initramfs, but it finished successfully.
+
+
+
+## 4. Configuring the System and Users
+
+Once Arch was installed, I configured the timezone, language, hostname, and user accounts.
+
+Commands used:
+
+ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime — Set the timezone to Central Time.
+
+hwclock --systohc — Updated the hardware clock.
+
+nano /etc/locale.gen — Opened the language configuration file.
+
+I uncommented en_US.UTF-8 UTF-8.
+
+locale-gen — Generated the language settings.
+
+echo "LANG=en_US.UTF-8" > /etc/locale.conf — Set the default language.
+
+echo "arch-cooper" > /etc/hostname — Set the computer's hostname.
+
+nano /etc/hosts — Edited the hosts file.
+
+I added the following entries to the hosts file:
+
 127.0.0.1 localhost
-::1       localhost
+
+::1 localhost
+
 127.0.1.1 arch-cooper.localdomain arch-cooper
-```
 
-In `visudo`, I uncommented the rule **`%wheel ALL=(ALL:ALL) ALL`**. I never wrote account passwords into this documentation.
+### Problem with Nano
 
-```bash
-systemctl enable NetworkManager       # Start network manager on boot
-systemctl enable sshd                 # Start SSH server on boot
-id cooper                             # Verify wheel group membership
-id codi                               # Verify wheel group membership
-getent passwd cooper codi             # Verify both users and Zsh login shells
-systemctl is-enabled NetworkManager   # Verify enabled
-systemctl is-enabled sshd             # Verify enabled
-```
+When I first tried opening Nano, I got an error saying:
 
-**Problem and solution:** Running `nano /etc/locale.gen` initially failed with `Error opening terminal: xterm-kmscon`. Changing the terminal type with **`export TERM=xterm`** fixed it, and `locale-gen` completed.
+Error opening terminal: xterm-kmscon
 
-![Accounts and enabled services](images/04-users-services.jpg)
+I figured out that the terminal type wasn't supported inside the chroot environment. I fixed it by running:
 
-## 5. Install the GUI and browser
+export TERM=xterm
 
-I chose **LXQt** because it is lightweight, **Openbox** as its window manager, **SDDM** for graphical logins, and **Firefox** for browser/internet verification.
+After that, Nano worked normally.
 
-```bash
-pacman -Syu                                       # Update packages
-pacman -S --needed lxqt sddm xorg-server mesa openbox breeze-icons qterminal firefox
-                                                    # Install desktop, Xorg, terminal, browser
-systemctl enable sddm                             # Enable graphical login manager
-systemctl set-default graphical.target            # Boot into GUI mode
-systemctl get-default                             # Verify graphical.target
-systemctl is-enabled sddm                         # Verify SDDM enabled
-pacman -Q lxqt-session sddm xorg-server openbox firefox  # Verify actual package names
-```
+### Creating the User Accounts
 
-**Problem and solution:** The first desktop installation produced repeated **`unknown trust` / PGP signature** errors for packages signed by the Arch Linux ARM Build System. The installed system was missing the `archlinuxarm-keyring` package. I canceled the failing package transaction, investigated the keyring with `pacman -Q`, checked `/usr/share/pacman/keyrings/`, and found that `pacman -Si archlinuxarm-keyring` listed the missing package. After repairing trust in the official ARM signing key and installing/populating the ARM keyring, I retried the desktop installation successfully. **I did not disable package signature verification.**
+The assignment required creating accounts for myself and Codi, both with sudo permissions.
 
-The troubleshooting commands used or checked during this issue included:
+Commands used:
 
-```bash
-pacman-key --init                         # Initialize key database
-pacman -Q archlinuxarm-keyring            # Diagnose missing package
-ls -l /usr/share/pacman/keyrings/         # Inspect available keyring files
-pacman -Si archlinuxarm-keyring           # Inspect repository package
-# Verify the official Arch Linux ARM signing key fingerprint before trusting it.
-pacman-key --populate archlinuxarm        # Populate keys after keyring is installed
-pacman -Sy archlinuxarm-keyring           # Install/update ARM keyring package
-pacman -Syu                               # Refresh/update packages after repair
-```
+passwd — Set the root password.
 
-For the exact key-bootstrap and signature verification procedure, consult the [Arch Linux ARM documentation](https://archlinuxarm.org/) rather than trusting an unverified key supplied by a random website.
+useradd -m -G wheel -s /bin/zsh cooper — Created my account with Zsh and added it to the wheel group.
 
-![Desktop installation finished](images/05-desktop-packages.jpg)
+passwd cooper — Set my account password.
 
-## 6. UEFI bootloader: systemd-boot
+useradd -m -G wheel -s /bin/zsh codi — Created Codi's account with the same permissions.
 
-The EFI partition was mounted at `/boot`, and the ARM kernel was called `Image`. I installed **systemd-boot**, verified the boot entry and root UUID, and then booted successfully without the installation ISO.
+passwd codi — Set Codi's password.
 
-```bash
-ls /sys/firmware/efi/efivars                # Inspect UEFI variables from installer context
-bootctl install                            # Copy systemd-boot to the EFI partition
-mkdir -p /boot/loader/entries              # Create boot entry directory
-nano /boot/loader/loader.conf              # Configure default entry and timeout
-blkid /dev/nvme0n1p2                      # Identify root UUID
-ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2)  # Store root UUID
-cat > /boot/loader/entries/arch.conf <<EOF
-title Arch Linux ARM
-linux /Image
-initrd /initramfs-linux.img
-options root=UUID=$ROOT_UUID rw
-EOF
-cat /boot/loader/entries/arch.conf          # Verify generated UUID and kernel paths
-bootctl list                                # Verify Arch entry is detected
-bootctl status                              # Inspect installed boot manager
-```
+EDITOR=nano visudo — Opened the sudoers file.
 
-The closing `EOF` above must be entered by itself, followed by Enter. My `/boot/loader/loader.conf` contained:
+In the sudoers file, I uncommented this line to allow wheel group members to use sudo:
 
-```text
+%wheel ALL=(ALL) ALL
+
+I also enabled networking and SSH.
+
+systemctl enable NetworkManager — Enabled networking at startup.
+
+systemctl enable sshd — Enabled the SSH server at startup.
+
+To verify everything, I ran:
+
+id cooper — Checked my groups.
+
+id codi — Checked Codi's groups.
+
+getent passwd cooper codi — Displayed both accounts and their default shells.
+
+systemctl is-enabled NetworkManager — Verified networking was enabled.
+
+systemctl is-enabled sshd — Verified SSH was enabled.
+
+Both users were members of the wheel group, and both services were enabled.
+
+
+
+## 5. Installing the Desktop Environment
+
+The base Arch installation does not include a graphical desktop, so I had to install one myself.
+
+I decided to use LXQt because it is lightweight and doesn't require as many resources as some other desktop environments. I also installed Openbox as the window manager, SDDM for the login screen, QTerminal, and Firefox.
+
+Commands used:
+
+pacman -Syu — Updated installed packages.
+
+pacman -S --needed lxqt sddm xorg-server mesa openbox breeze-icons qterminal firefox — Installed the desktop environment and other programs.
+
+### Problem with Package Signatures
+
+This was one of the bigger problems I ran into.
+
+When I tried installing LXQt, Pacman kept reporting that packages had invalid signatures or unknown trust. It happened with a large number of packages, so I canceled the installation instead of continuing to delete them.
+
+After checking the system, I found that the Arch Linux ARM signing-key package was missing.
+
+Some commands I used to investigate and fix this were:
+
+pacman-key --init — Initialized the Pacman keyring.
+
+pacman -Q archlinuxarm-keyring — Checked whether the ARM keyring package was installed.
+
+ls -l /usr/share/pacman/keyrings/ — Checked which signing-key files were available.
+
+pacman -Si archlinuxarm-keyring — Checked the package information.
+
+I then imported and verified the official Arch Linux ARM signing key, trusted it locally, and installed the missing keyring package.
+
+pacman -Sy archlinuxarm-keyring — Installed the ARM keyring package.
+
+pacman-key --populate archlinuxarm — Loaded the trusted ARM signing keys.
+
+pacman -Syu — Updated the packages again.
+
+After fixing the signing keys, I retried installing LXQt, and it worked. I did not disable signature verification.
+
+### Enabling the GUI
+
+Once everything was installed, I ran:
+
+systemctl enable sddm — Enabled the graphical login screen.
+
+systemctl set-default graphical.target — Configured the system to boot into the GUI.
+
+systemctl get-default — Verified the default boot target.
+
+systemctl is-enabled sddm — Verified SDDM was enabled.
+
+pacman -Q lxqt-session sddm xorg-server openbox firefox — Verified that the packages were installed.
+
+Everything checked out.
+
+
+
+## 6. Configuring the Bootloader
+
+Next, I needed to make sure the VM could boot from its virtual hard drive instead of the installation ISO.
+
+I used systemd-boot since the VM uses UEFI.
+
+Commands used:
+
+ls /sys/firmware/efi/efivars — Checked the UEFI environment.
+
+bootctl install — Installed systemd-boot onto the EFI partition.
+
+mkdir -p /boot/loader/entries — Created the bootloader entries directory.
+
+nano /boot/loader/loader.conf — Edited the bootloader settings.
+
+I put these settings in loader.conf:
+
 default arch.conf
+
 timeout 5
+
 console-mode auto
+
 editor no
-```
 
-`bootctl` printed **`Not booted with EFI or running in a container`** in the chroot. This did not prevent creating the EFI loader files. `bootctl list` still showed `Arch Linux ARM` as the default entry.
+Next, I got the UUID of my Linux partition.
 
-```bash
-exit               # Leave chroot
-umount -R /mnt     # Unmount installed system
-poweroff           # Shut down live installer
-```
+blkid /dev/nvme0n1p2 — Displayed the partition UUID.
 
-I then **disconnected the ISO in VMware Fusion** and started the VM from the hard disk. It reached the **SDDM login screen** with both users and successfully logged into the **LXQt** desktop.
+ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2) — Saved the UUID to a variable.
 
-![SDDM graphical login](images/06-login.jpg)
+I then created the Arch Linux boot entry by entering these lines:
 
-![Working LXQt desktop](images/07-desktop.jpg)
+cat > /boot/loader/entries/arch.conf <\<EOF
 
-## 7. Zsh, terminal colors, and aliases
+title Arch Linux ARM
 
-Logged in as `cooper`, I opened **QTerminal**. Both accounts were created with `/bin/zsh` as their login shell. In `~/.zshrc` I used:
+linux /Image
 
-```zsh
-autoload -U colors && colors                  # Enable color features
-PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '      # Color username and working directory
-alias ls='ls --color=auto'                    # Color directory listing
-alias grep='grep --color=auto'                # Color grep matches
-alias ll='ls -lah'                            # Long detailed listing
-alias la='ls -A'                              # Include hidden files
-alias cls='clear'                             # Clear terminal
-alias update='sudo pacman -Syu'               # System update shortcut
-alias myip='ip -br addr'                      # Show IP addresses
-alias ports='ss -tuln'                        # Show listening ports
-alias ..='cd ..'                              # Parent directory
-alias ...='cd ../..'                          # Two parent directories
-```
+initrd /initramfs-linux.img
 
-```bash
-nano ~/.zshrc                  # Edit Zsh configuration
-source ~/.zshrc               # Reload shell configuration
-ll                            # Test long directory listing alias
-myip                          # Test IP display alias
-ports                         # Test listening ports alias
-```
+options root=UUID=$ROOT_UUID rw
 
-![Colored Zsh and aliases](images/08-terminal-aliases.jpg)
+EOF
 
-## 8. Verification of assignment requirements
+I pressed Enter after the final EOF to finish writing the file.
 
-```bash
-whoami                        # Confirm logged in as cooper
-printf '%s\n' "$SHELL"         # Confirm /bin/zsh
-sudo whoami                   # Confirm sudo returns root
-getent passwd cooper codi     # Display required user accounts
-id cooper                     # Confirm wheel group
-id codi                       # Confirm wheel group
-sudo visudo                   # Safely inspect sudoers configuration
-systemctl status sshd         # Confirm OpenSSH active (running); q exits pager
-systemctl get-default         # Confirm graphical.target
-ip -br addr                   # Show VM IP address
-ss -tuln                      # Show listening SSH port 22
-```
+Then I verified it:
 
-The VM received an address in VMware's NAT network (observed as **192.168.116.143** during verification). SSH was **active (running)**, SDDM launched automatically, and the terminal displayed colored output. Firefox was installed for browsing to the final GitHub Pages website.
+cat /boot/loader/entries/arch.conf — Checked the boot entry.
 
-![SSH and graphical target](images/09-service-verification.jpg)
+bootctl list — Displayed the available boot entries.
 
-## 9. AUR package demonstration (walkthrough video)
+bootctl status — Checked the bootloader status.
 
-**Pending video task:** The assignment requires installing an Arch User Repository package during the walkthrough. The AUR is community-maintained and package builds may not support ARM64, so I will choose a small package with compatible `arch=('any')` or `aarch64` metadata and examine its `PKGBUILD` before using `makepkg -si` as a non-root user. Installing an AUR package is **not yet claimed as completed in this document**.
+I did get a message saying the system was not booted with EFI or was running inside a container. This happened because I was still using chroot. The bootloader files were installed, and the boot entry appeared correctly.
 
-```bash
-sudo pacman -S --needed base-devel git  # Ensure AUR build prerequisites
-# Once the package is selected and verified:
-# git clone https://aur.archlinux.org/NAME.git
-# cd NAME
-# less PKGBUILD                   # Review build instructions and sources
-# makepkg -si                    # Build and install as ordinary user
-```
+Finally, I ran:
 
-## 10. Troubleshooting recap
+exit — Exited chroot.
 
-| Problem | Resolution |
-|---|---|
-| Local Archboot ISO stopped at “System is booting up” | Booted the same ARM environment via the **iPXE network option** instead |
-| `partprobe` unavailable | Used `partx -u /dev/nvme0n1` |
-| Nano could not use `xterm-kmscon` | Ran `export TERM=xterm` inside chroot |
-| Desktop packages reported PGP `unknown trust` | Installed/repaired missing **Arch Linux ARM keyring**, then retried without disabling verification |
-| `bootctl` reported it was running in a container | Expected in chroot; verified boot entry, then confirmed successful native boot |
+umount -R /mnt — Unmounted the installed system.
+
+poweroff — Shut down the VM.
+
+I disconnected the ISO in VMware Fusion and started the virtual machine again.
+
+This time, Arch Linux successfully booted from the virtual hard drive and brought me to the SDDM login screen.
+
+Both user accounts appeared, and I was able to log into LXQt using my own account.
+
+
+
+
+
+## 7. Configuring Zsh, Colors, and Aliases
+
+After logging in, I opened QTerminal to finish customizing the shell.
+
+Both user accounts already had Zsh configured as their default shell.
+
+I edited my Zsh configuration file:
+
+nano \~/.zshrc — Opened the Zsh configuration.
+
+I added these settings for terminal colors:
+
+autoload -U colors && colors
+
+PROMPT='%F{green}%n@%m%f:%F{blue}%\~%f$ '
+
+I also added aliases to make common Linux commands easier to use.
+
+alias ls='ls --color=auto' — Enables colored directory listings.
+
+alias grep='grep --color=auto' — Enables colored grep output.
+
+alias ll='ls -lah' — Displays a detailed directory listing.
+
+alias la='ls -A' — Lists files including hidden files.
+
+alias cls='clear' — Clears the terminal.
+
+alias update='sudo pacman -Syu' — Updates packages.
+
+alias myip='ip -br addr' — Displays network addresses.
+
+alias ports='ss -tuln' — Shows listening ports.
+
+alias ..='cd ..' — Goes back one directory.
+
+alias ...='cd ../..' — Goes back two directories.
+
+After saving the file, I ran:
+
+source \~/.zshrc — Reloaded the configuration.
+
+I tested several aliases, including ll, myip, and ports. They all worked, and the terminal displayed different colors.
+
+
+
+## 8. Testing the Installation
+
+After finishing the setup, I tested the system to make sure the assignment requirements were working.
+
+Commands used:
+
+whoami — Checked the current username.
+
+echo $SHELL — Verified that Zsh was the default shell.
+
+sudo whoami — Tested sudo permissions.
+
+getent passwd cooper codi — Displayed both user accounts.
+
+id cooper — Checked my group membership.
+
+id codi — Checked Codi's group membership.
+
+systemctl status sshd — Checked the SSH service.
+
+systemctl get-default — Checked the default boot mode.
+
+ip -br addr — Displayed the VM's IP address.
+
+ss -tuln — Checked listening ports.
+
+SSH was active and running, and the system was configured to boot into graphical.target.
+
+The VM's IP address was 192.168.116.143 during testing.
+
+I also opened Firefox to verify that the graphical browser worked and that I could access the internet.
+
+
+
+## 9. AUR Package
+
+The assignment also requires installing a package from the Arch User Repository during the walkthrough video.
+
+I already installed the development tools needed for this.
+
+sudo pacman -S --needed base-devel git — Installs the tools needed to build AUR packages.
+
+For the video, I will choose an AUR package that supports ARM64, check its PKGBUILD file, and install it using makepkg.
+
+The general commands are:
+
+git clone [https://aur.archlinux.org/PACKAGE.git](https://aur.archlinux.org/PACKAGE.git) — Downloads the selected package's build files.
+
+cd PACKAGE — Enters the package directory.
+
+less PKGBUILD — Shows the build instructions so I can review them.
+
+makepkg -si — Builds and installs the package.
+
+I will complete this part during the walkthrough video.
+
+## 10. Problems I Encountered
+
+Overall, I ran into a few problems while installing Arch Linux.
+
+**1. Archboot wouldn't start normally.**
+
+The default boot option kept getting stuck. I eventually used the iPXE network boot option, which worked.
+
+**2. The partprobe command wasn't available.**
+
+I used partx -u instead to update the partition information.
+
+**3. Nano wouldn't open inside chroot.**
+
+I got an error related to xterm-kmscon. Running export TERM=xterm fixed it.
+
+**4. Pacman wouldn't trust the LXQt packages.**
+
+The Arch Linux ARM keyring package was missing. I installed the correct keyring and fixed the signing-key trust issue before retrying the installation.
+
+**5. The bootloader displayed a warning about EFI.**
+
+This happened because I was using chroot. The bootloader entry was still created, and the VM booted successfully afterward.
+
+Even though I had a few issues, I was able to get Arch Linux installed and working. I also learned more about partitioning, package management, user permissions, bootloaders, and how the different parts of a Linux system work together.
 
 ## References
 
 - [Arch Linux Installation Guide](https://wiki.archlinux.org/title/Installation_guide)
-- [Archboot ARM64 ISO](https://release.archboot.com/aarch64/latest/iso/)
+- [Archboot ARM64](https://release.archboot.com/aarch64/latest/iso/)
 - [Arch Linux ARM](https://archlinuxarm.org/)
-- [Arch Wiki: systemd-boot](https://wiki.archlinux.org/title/Systemd-boot)
-- [Arch Wiki: LXQt](https://wiki.archlinux.org/title/LXQt)
+- [Arch Wiki - systemd-boot](https://wiki.archlinux.org/title/Systemd-boot)
+- [Arch Wiki - LXQt](https://wiki.archlinux.org/title/LXQt)
 - [Arch User Repository](https://aur.archlinux.org/)
