@@ -1,13 +1,13 @@
 # Arch Linux ARM Installation Documentation
 
-**Date:** October 30, 2026  
-**Computer:** M2 MacBook Air  
-**Virtual Machine:** VMware Fusion  
+**Date:** October 30, 2026\
+**Computer:** M2 MacBook Air\
+**Virtual Machine:** VMware Fusion\
 **Operating System:** Arch Linux ARM
 
 ## 1. Setting Up the Virtual Machine
 
-For this assignment, I installed Arch Linux ARM on my M2 MacBook Air using VMware Fusion. Since my Mac uses an ARM processor, I couldn't use the regular Arch Linux ISO. Instead, I downloaded the ARM version of Archboot that was linked in the assignment.
+For this assignment, I installed Arch Linux ARM on my M2 MacBook Air using VMware Fusion. Since my Mac uses an ARM processor, I couldn’t use the regular Arch Linux ISO. Instead, I downloaded the ARM version of Archboot that was linked in the assignment.
 
 I created a new Linux ARM virtual machine with these settings:
 
@@ -17,7 +17,7 @@ I created a new Linux ARM virtual machine with these settings:
 - NAT networking
 - UEFI boot
 
-I initially had trouble getting Archboot to start. The regular boot option kept getting stuck on a message saying the system was still booting. I tried restarting and increasing the RAM, but it didn't fix the issue. I eventually selected the iPXE network boot option, which downloaded the installation environment over the internet. This worked, and I was able to open the root terminal.
+I initially had trouble getting Archboot to start. The regular boot option kept getting stuck on a message saying the system was still booting. I tried restarting and increasing the RAM, but it didn’t fix the issue. I eventually selected the iPXE network boot option, which downloaded the installation environment over the internet. This worked, and I was able to open the root terminal.
 
 Once I was in the terminal, I ran these commands:
 
@@ -28,7 +28,6 @@ Once I was in the terminal, I ran these commands:
 `lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS` — Found my 40 GB virtual hard drive.
 
 The drive was listed as /dev/nvme0n1.
-
 
 ## 2. Partitioning the Hard Drive
 
@@ -48,7 +47,7 @@ Commands used:
 
 `lsblk` — Checked that both partitions were created.
 
-I originally tried using partprobe, but it wasn't installed. I used partx instead, which worked.
+I originally tried using partprobe, but it wasn’t installed. I used partx instead, which worked.
 
 After creating the partitions, I formatted them.
 
@@ -65,7 +64,6 @@ Then I mounted them:
 `mount /dev/nvme0n1p1 /mnt/boot` — Mounted the EFI partition.
 
 `lsblk -f` — Verified that everything was mounted correctly.
-
 
 ## 3. Installing Arch Linux
 
@@ -87,10 +85,9 @@ Commands used:
 
 `cat /etc/os-release` — Verified that Arch Linux ARM was installed.
 
-ls -lh /boot — Checked that the kernel and initramfs files were created.
+`ls -lh /boot` — Checked that the kernel and initramfs files were created.
 
 The installation completed successfully. There were a few warnings while generating the initramfs, but it finished successfully.
-
 
 ## 4. Configuring the System and Users
 
@@ -110,7 +107,7 @@ I uncommented en_US.UTF-8 UTF-8.
 
 `echo "LANG=en_US.UTF-8" > /etc/locale.conf` — Set the default language.
 
-`echo "arch-cooper" > /etc/hostname` — Set the computer's hostname.
+`echo "arch-cooper" > /etc/hostname` — Set the computer’s hostname.
 
 `nano /etc/hosts` — Edited the hosts file.
 
@@ -128,7 +125,7 @@ When I first tried opening Nano, I got an error saying:
 
 Error opening terminal: xterm-kmscon
 
-I figured out that the terminal type wasn't supported inside the chroot environment. I fixed it by running:
+I figured out that the terminal type wasn’t supported inside the chroot environment. I fixed it by running:
 
 `export TERM=xterm`
 
@@ -146,9 +143,9 @@ Commands used:
 
 `passwd cooper` — Set my account password.
 
-`useradd -m -G wheel -s /bin/zsh codi` — Created Codi's account with the same permissions.
+`useradd -m -G wheel -s /bin/zsh codi` — Created Codi’s account with the same permissions.
 
-`passwd codi` — Set Codi's password.
+`passwd codi` — Set Codi’s password.
 
 `EDITOR=nano visudo` — Opened the sudoers file.
 
@@ -166,7 +163,7 @@ To verify everything, I ran:
 
 `id cooper` — Checked my groups.
 
-`id codi` — Checked Codi's groups.
+`id codi` — Checked Codi’s groups.
 
 `getent passwd cooper codi` — Displayed both accounts and their default shells.
 
@@ -176,12 +173,11 @@ To verify everything, I ran:
 
 Both users were members of the wheel group, and both services were enabled.
 
-
 ## 5. Installing the Desktop Environment
 
 The base Arch installation does not include a graphical desktop, so I had to install one myself.
 
-I decided to use LXQt because it is lightweight and doesn't require as many resources as some other desktop environments. I also installed Openbox as the window manager, SDDM for the login screen, QTerminal, and Firefox.
+I decided to use LXQt because it is lightweight and doesn’t require as many resources as some other desktop environments. I also installed Openbox as the window manager, SDDM for the login screen, QTerminal, and Firefox.
 
 Commands used:
 
@@ -199,19 +195,25 @@ After checking the system, I found that the Arch Linux ARM signing-key package w
 
 Some commands I used to investigate and fix this were:
 
-pacman-key --init — Initialized the Pacman keyring.
+`pacman-key --init` — Initialized the Pacman keyring.
 
 `pacman -Q archlinuxarm-keyring` — Checked whether the ARM keyring package was installed.
 
-ls -l /usr/share/pacman/keyrings/ — Checked which signing-key files were available.
+`ls -l /usr/share/pacman/keyrings/` — Checked which signing-key files were available.
 
 `pacman -Si archlinuxarm-keyring` — Checked the package information.
 
 I then imported and verified the official Arch Linux ARM signing key, trusted it locally, and installed the missing keyring package.
 
+`pacman-key --recv-keys 68B3537F39A313B3E574D06777193F152BDBE6A6 --keyserver keyserver.ubuntu.com` — Downloaded the ARM signing key.
+
+`pacman-key --finger 68B3537F39A313B3E574D06777193F152BDBE6A6` — Checked the fingerprint against the official key.
+
+`pacman-key --lsign-key 68B3537F39A313B3E574D06777193F152BDBE6A6` — Locally trusted the verified key.
+
 `pacman -Sy archlinuxarm-keyring` — Installed the ARM keyring package.
 
-pacman-key --populate archlinuxarm — Loaded the trusted ARM signing keys.
+`pacman-key --populate archlinuxarm` — Loaded the trusted ARM signing keys.
 
 `pacman -Syu` — Updated the packages again.
 
@@ -233,7 +235,6 @@ Once everything was installed, I ran:
 
 Everything checked out.
 
-
 ## 6. Configuring the Bootloader
 
 Next, I needed to make sure the VM could boot from its virtual hard drive instead of the installation ISO.
@@ -242,7 +243,7 @@ I used systemd-boot since the VM uses UEFI.
 
 Commands used:
 
-ls /sys/firmware/efi/efivars — Checked the UEFI environment.
+`ls /sys/firmware/efi/efivars` — Checked the UEFI environment.
 
 `bootctl install` — Installed systemd-boot onto the EFI partition.
 
@@ -306,8 +307,6 @@ This time, Arch Linux successfully booted from the virtual hard drive and brough
 
 Both user accounts appeared, and I was able to log into LXQt using my own account.
 
-
-
 ## 7. Configuring Zsh, Colors, and Aliases
 
 After logging in, I opened QTerminal to finish customizing the shell.
@@ -352,14 +351,13 @@ After saving the file, I ran:
 
 I tested several aliases, including ll, myip, and ports. They all worked, and the terminal displayed different colors.
 
-
 ## 8. Testing the Installation
 
 After finishing the setup, I tested the system to make sure the assignment requirements were working.
 
 Commands used:
 
-whoami — Checked the current username.
+`whoami` — Checked the current username.
 
 `echo $SHELL` — Verified that Zsh was the default shell.
 
@@ -369,22 +367,21 @@ whoami — Checked the current username.
 
 `id cooper` — Checked my group membership.
 
-`id codi` — Checked Codi's group membership.
+`id codi` — Checked Codi’s group membership.
 
 `systemctl status sshd` — Checked the SSH service.
 
 `systemctl get-default` — Checked the default boot mode.
 
-ip -br addr — Displayed the VM's IP address.
+`ip -br addr` — Displayed the VM’s IP address.
 
-ss -tuln — Checked listening ports.
+`ss -tuln` — Checked listening ports.
 
 SSH was active and running, and the system was configured to boot into graphical.target.
 
-The VM's IP address was 192.168.116.143 during testing.
+The VM’s IP address was 192.168.116.143 during testing.
 
 I also opened Firefox to verify that the graphical browser worked and that I could access the internet.
-
 
 ## 9. AUR Package
 
@@ -398,7 +395,7 @@ For the video, I will choose an AUR package that supports ARM64, check its PKGBU
 
 The general commands are:
 
-`git clone https://aur.archlinux.org/PACKAGE.git` — Downloads the selected package's build files.
+`git clone https://aur.archlinux.org/PACKAGE.git` — Downloads the selected package’s build files.
 
 `cd PACKAGE` — Enters the package directory.
 
@@ -412,19 +409,19 @@ I will complete this part during the walkthrough video.
 
 Overall, I ran into a few problems while installing Arch Linux.
 
-**1. Archboot wouldn't start normally.**
+**1. Archboot wouldn’t start normally.**
 
 The default boot option kept getting stuck. I eventually used the iPXE network boot option, which worked.
 
-**2. The partprobe command wasn't available.**
+**2. The partprobe command wasn’t available.**
 
 I used partx -u instead to update the partition information.
 
-**3. Nano wouldn't open inside chroot.**
+**3. Nano wouldn’t open inside chroot.**
 
 I got an error related to xterm-kmscon. Running export TERM=xterm fixed it.
 
-**4. Pacman wouldn't trust the LXQt packages.**
+**4. Pacman wouldn’t trust the LXQt packages.**
 
 The Arch Linux ARM keyring package was missing. I installed the correct keyring and fixed the signing-key trust issue before retrying the installation.
 
