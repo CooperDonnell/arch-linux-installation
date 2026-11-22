@@ -1,8 +1,7 @@
 # Docker Compose Project 2: Forgejo and PostgreSQL
 
-**Student:** Cooper Donnell  
-**Date:** November 22, 2026  
-**System:** Ubuntu Server 22.04 on the University of Tulsa Proxmox environment
+Cooper Donnell  
+November 22, 2026  
 
 ## What I made
 For this project I installed Docker and Docker Compose on my Ubuntu virtual machine. I first tried BookStack with MariaDB. BookStack worked at first, but I had problems restoring its database. I switched to Forgejo, which is a website that can host Git repositories, and PostgreSQL, which stores the database information. Both apps run in their own Docker containers.
@@ -98,4 +97,3 @@ I learned how Docker Compose runs two services together, how to use volumes so d
 - `backup_example.sh` - example script for backing up PostgreSQL and the Forgejo files; provided for reference, not claimed as tested
 - `screenshots/` - the evidence used in this report
 
-**Note:** This was a class lab using HTTP on a private network. It is not configured to be used as a production server.
