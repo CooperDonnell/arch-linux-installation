@@ -439,3 +439,11 @@ Even though I had a few issues, I was able to get Arch Linux installed and worki
 - [Arch Wiki - systemd-boot](https://wiki.archlinux.org/title/Systemd-boot)
 - [Arch Wiki - LXQt](https://wiki.archlinux.org/title/LXQt)
 - [Arch User Repository](https://aur.archlinux.org/)
+
+---
+
+## Docker Project 2
+
+For this project, I installed Docker and Docker Compose on an Ubuntu Server VM in Proxmox. I deployed Forgejo and PostgreSQL, configured security settings, and tested database backup and recovery.
+
+[View my Docker Project 2 documentation](./docker-project-2/)
